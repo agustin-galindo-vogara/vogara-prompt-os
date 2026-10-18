@@ -1,0 +1,1 @@
+export type BrandTheme={key:string;organizationName:string;productName:string;descriptor:string;domain:string;logoPath:string;colors:{primary:string;secondary:string;surface:string;background:string;text:string;mutedText:string;border:string};typography:{heading:string;body:string}};
