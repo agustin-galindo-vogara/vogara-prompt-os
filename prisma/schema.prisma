@@ -103,6 +103,7 @@ model PromptVersion {
   patch              Int                            @default(0)
   canonicalVersionId String                         @unique
   status             PromptVersionStatus            @default(DRAFT)
+  classification     String?
   audience           String?
   summary            String
   expectedOutput     String?
@@ -112,6 +113,7 @@ model PromptVersion {
   previousVersionId  String?
   approverLabel      String?
   confidentiality    String?
+  qualityScore       Int?
   approvedAt         DateTime?
   lastReviewedAt     DateTime?
   nextReviewAt       DateTime?
