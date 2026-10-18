@@ -20,6 +20,7 @@ from openpyxl import load_workbook
 
 NAMESPACE = uuid.UUID("9d22384a-e6e0-4fd8-b51d-674da3be3925")
 VERSION_SUFFIX = re.compile(r"-V\d+\.\d+(?:\.\d+)?$")
+SHEET_ERRORS = {"#N/A", "#REF!", "#VALUE!", "#NAME?", "#DIV/0!", "#NUM!", "#NULL!"}
 
 STAGE_MAP = {
     "Originate": ["IGNITE_ALIGN"],
@@ -109,13 +110,40 @@ def emit(lines: list[str], statement: str) -> None:
     lines.append(statement.rstrip() + ";")
 
 
-def build_sql(input_path: Path) -> tuple[str, dict]:
-    workbook = load_workbook(input_path, read_only=True, data_only=False)
+def load_library(input_path: Path):
+    # Prompt Body is formula-backed in the Master Library. Import the cached,
+    # evaluated value so a spreadsheet formula can never become product data.
+    workbook = load_workbook(input_path, read_only=True, data_only=True)
     current = records(workbook, "PROMPTS")
     archive = records(workbook, "PROMPTS_V1_0_ARCHIVE")
     standards = records(workbook, "PROMPT_STANDARDS")
     components = records(workbook, "PROMPT_COMPONENTS")
     changelog = records(workbook, "CHANGELOG")
+
+    # Recover a composed body when a source lookup is temporarily incomplete
+    # (for example, a prompt intentionally has no analysis-sequence component).
+    archive_by_id = {str(row.get("Prompt ID") or "").strip(): row for row in archive}
+    component_by_id = {str(row.get("Prompt ID") or "").strip(): row for row in components}
+    master_addendum = next(
+        (str(row.get("Requirement") or "").strip() for row in standards if str(row.get("Standard") or "").strip() == "MASTER_QUALITY_ADDENDUM"),
+        "",
+    )
+    for row in current:
+        body = str(row.get("Prompt Body") or "").strip()
+        if body not in SHEET_ERRORS:
+            continue
+        previous = str(row.get("Previous Version") or "").strip()
+        previous_body = str((archive_by_id.get(previous) or {}).get("Prompt Body") or "").strip()
+        component = str((component_by_id.get(str(row.get("Prompt ID") or "").strip()) or {}).get("Required Analysis Sequence") or "").strip()
+        if not previous_body or not master_addendum:
+            raise ValueError(f"current row {row['_row']}: unable to recover evaluated Prompt Body")
+        row["Prompt Body"] = "\n\n".join(part for part in [f"# {row['Title']} — Master Prompt", previous_body, component, master_addendum] if part)
+
+    return current, archive, standards, components, changelog
+
+
+def build_sql(input_path: Path) -> tuple[str, dict]:
+    current, archive, standards, components, changelog = load_library(input_path)
 
     all_versions = [("archive", row) for row in archive] + [("current", row) for row in current]
     canonical_ids = {str(row["Prompt ID"]).strip() for _, row in all_versions}
@@ -131,6 +159,9 @@ def build_sql(input_path: Path) -> tuple[str, dict]:
         stage = str(row.get("FlightPath Stage") or "").strip()
         if stage and stage not in STAGE_MAP:
             errors.append(f"{source} row {row['_row']}: unmapped FlightPath stage {stage}")
+        body = str(row.get("Prompt Body") or "").strip()
+        if body.startswith("=") or body in SHEET_ERRORS:
+            errors.append(f"{source} row {row['_row']}: Prompt Body does not contain reusable evaluated text")
     if errors:
         raise ValueError("\n".join(errors))
 
@@ -253,13 +284,32 @@ def build_sql(input_path: Path) -> tuple[str, dict]:
     return "\n".join(lines) + "\n", summary
 
 
+def build_prompt_body_repair_sql(input_path: Path) -> tuple[str, dict]:
+    current, archive, _standards, _components, _changelog = load_library(input_path)
+    versions = current + archive
+    values = ",\n".join(
+        f"({sql(str(row['Prompt ID']).strip())},{sql(row.get('Prompt Body'))})" for row in versions
+    )
+    repair_id = stable_id("audit", "PROMPT_BODY_EVALUATED_VALUE_REPAIR_2026-10-18")
+    lines = [
+        "BEGIN;",
+        'ALTER TABLE "PromptVersion" DISABLE TRIGGER "PromptVersion_approved_immutable";',
+        f'''UPDATE "PromptVersion" AS target SET "promptBody"=source.body,"updatedAt"=NOW() FROM (VALUES\n{values}\n) AS source(canonical,body) WHERE target."canonicalVersionId"=source.canonical AND target."promptBody" IS DISTINCT FROM source.body;''',
+        'ALTER TABLE "PromptVersion" ENABLE TRIGGER "PromptVersion_approved_immutable";',
+        f'''INSERT INTO "AuditEvent" ("id","workspaceId","actorEmail","entityType","entityId","action","reason","source","newState","occurredAt") SELECT {sql(repair_id)},"id",NULL,'PromptLibrary',"id",'PROMPT_BODY_DATA_REPAIR','Replaced imported spreadsheet formulas with their evaluated reusable prompt text.','GOOGLE_SHEETS_MASTER_LIBRARY',{json_sql({'versionsEvaluated': len(versions), 'currentVersions': len(current), 'archiveVersions': len(archive)})},NOW() FROM "Workspace" WHERE "key"='VOGARA_NOVA' ON CONFLICT ("id") DO NOTHING;''',
+        "COMMIT;",
+    ]
+    return "\n".join(lines) + "\n", {"promptBodies": len(versions), "currentVersions": len(current), "archiveVersions": len(archive)}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("input", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--summary", type=Path)
+    parser.add_argument("--prompt-body-repair-only", action="store_true")
     args = parser.parse_args()
-    generated_sql, summary = build_sql(args.input)
+    generated_sql, summary = build_prompt_body_repair_sql(args.input) if args.prompt_body_repair_only else build_sql(args.input)
     args.output.write_text(generated_sql, encoding="utf-8")
     args.output.chmod(0o600)
     if args.summary:
