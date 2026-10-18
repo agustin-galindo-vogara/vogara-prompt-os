@@ -6,6 +6,21 @@ runConfig:
   concurrency: 80
 
 env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyCvw97Fjo9-c6kDJ2pZtto9SMHz329vEDs
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: vogara-prompt-os.firebaseapp.com
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: vogara-prompt-os
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:862587934575:web:ccaa242afeef02d23efa9a
+    availability: [BUILD, RUNTIME]
+  - variable: FIREBASE_PROJECT_ID
+    value: vogara-prompt-os
+    availability: [RUNTIME]
   - variable: AUTH_ALLOWED_DOMAIN
     value: vogaranova.com
     availability: [RUNTIME]
