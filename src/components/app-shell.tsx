@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BarChart3, BookOpenText, Boxes, ClipboardCheck, Component, Gauge, GitBranch, LogOut, Search } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 const nav = [
   { label: "Dashboard", href: "/", icon: Gauge },
@@ -17,6 +17,20 @@ const nav = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const focusSearch = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      }
+    };
+    window.addEventListener("keydown", focusSearch);
+    return () => window.removeEventListener("keydown", focusSearch);
+  }, []);
+
   if (pathname === "/sign-in") return children;
 
   async function signOut() {
@@ -42,7 +56,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="main">
         <header className="topbar">
           <div className="mobile-brand">Prompt OS</div>
-          <div className="search"><Search size={16}/><span>Search Prompt OS</span><kbd>⌘ K</kbd></div>
+          <form className="search topbar-search" action="/library" method="get">
+            <Search size={16}/>
+            <input ref={searchRef} aria-label="Search Prompt OS" name="q" placeholder="Search Prompt OS" />
+            <kbd>⌘ K</kbd>
+          </form>
           <button className="sign-out" aria-label="Sign out" onClick={signOut}><span>AG</span><LogOut size={15}/></button>
         </header>
         <div className="content">{children}</div>

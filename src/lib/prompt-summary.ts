@@ -4,10 +4,12 @@ export type PromptSummary = {
   category: string;
   version: string;
   status: string;
+  statusKey: string;
   stage: string;
   summary: string;
   owner: string;
   review: string;
+  platforms: string;
 };
 
 const reviewFormatter = new Intl.DateTimeFormat("en", {
