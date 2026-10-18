@@ -8,3 +8,6 @@ out
 .DS_Store
 data/private
 data/migration
+.firebase
+firebase-debug.log
+firebase-debug.*.log

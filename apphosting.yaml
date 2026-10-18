@@ -1,0 +1,27 @@
+runConfig:
+  cpu: 1
+  memoryMiB: 512
+  minInstances: 0
+  maxInstances: 10
+  concurrency: 80
+
+env:
+  - variable: AUTH_ALLOWED_DOMAIN
+    value: vogaranova.com
+    availability: [RUNTIME]
+  - variable: DEFAULT_WORKSPACE_KEY
+    value: VOGARA_NOVA
+    availability: [RUNTIME]
+  - variable: DEFAULT_BRAND_KEY
+    value: vogara-nova
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_APP_NAME
+    value: Vogara Prompt OS
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_APP_DOMAIN
+    value: prompts.vogaranova.com
+    availability: [BUILD, RUNTIME]
+  - variable: DATABASE_URL
+    secret: databaseUrl
+  - variable: PROMPT_OS_ADMIN_EMAIL
+    secret: promptOsAdminEmail

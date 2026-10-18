@@ -1,28 +1,327 @@
-generator client{provider="prisma-client-js"}
-datasource db{provider="postgresql" url=env("DATABASE_URL")}
-enum PromptVersionStatus{DRAFT PILOT APPROVED SUPERSEDED DEPRECATED ARCHIVED}
-enum WorkspaceRole{ADMIN APPROVER EDITOR VIEWER}
-model Workspace{id String @id @default(uuid()) key String @unique name String brandKey String domain String? isActive Boolean @default(true) createdAt DateTime @default(now()) updatedAt DateTime @updatedAt memberships WorkspaceMembership[] prompts Prompt[] auditEvents AuditEvent[]}
-model User{id String @id @default(uuid()) email String @unique displayName String? googleSubject String? @unique isActive Boolean @default(true) createdAt DateTime @default(now()) updatedAt DateTime @updatedAt memberships WorkspaceMembership[] createdPrompts Prompt[] @relation("PromptCreatedBy") createdVersions PromptVersion[] @relation("VersionCreatedBy")}
-model WorkspaceMembership{id String @id @default(uuid()) workspaceId String userId String role WorkspaceRole createdAt DateTime @default(now()) workspace Workspace @relation(fields:[workspaceId],references:[id],onDelete:Cascade) user User @relation(fields:[userId],references:[id],onDelete:Cascade) @@unique([workspaceId,userId,role]) @@index([workspaceId,role])}
-model Category{id String @id @default(uuid()) key String @unique name String @unique sortOrder Int? isActive Boolean @default(true) prompts Prompt[]}
-model Prompt{id String @id @default(uuid()) workspaceId String key String title String purpose String? categoryId String? ownerLabel String isActive Boolean @default(true) createdAt DateTime @default(now()) updatedAt DateTime @updatedAt createdById String? workspace Workspace @relation(fields:[workspaceId],references:[id]) category Category? @relation(fields:[categoryId],references:[id]) createdBy User? @relation("PromptCreatedBy",fields:[createdById],references:[id]) versions PromptVersion[] sourceRelationships PromptRelationship[] @relation("RelationshipSource") targetRelationships PromptRelationship[] @relation("RelationshipTarget") @@unique([workspaceId,key]) @@index([workspaceId,title])}
-model PromptVersion{id String @id @default(uuid()) promptId String major Int @default(1) minor Int @default(0) patch Int @default(0) canonicalVersionId String @unique status PromptVersionStatus @default(DRAFT) audience String? summary String expectedOutput String? requiredInputsText String? promptBody String @db.Text changeNotes String? previousVersionId String? approverLabel String? confidentiality String? approvedAt DateTime? lastReviewedAt DateTime? nextReviewAt DateTime? createdAt DateTime @default(now()) updatedAt DateTime @updatedAt createdById String? prompt Prompt @relation(fields:[promptId],references:[id]) createdBy User? @relation("VersionCreatedBy",fields:[createdById],references:[id]) previousVersion PromptVersion? @relation("VersionChain",fields:[previousVersionId],references:[id]) nextVersions PromptVersion[] @relation("VersionChain") tags PromptVersionTag[] platforms PromptVersionPlatform[] usages PromptVersionUsage[] stages PromptVersionFlightPathStage[] standards PromptVersionStandard[] components PromptVersionComponent[] inputs PromptInput[] outputs PromptOutput[] @@unique([promptId,major,minor,patch]) @@index([promptId,status]) @@index([status,nextReviewAt])}
-model Tag{id String @id @default(uuid()) key String @unique label String prompts PromptVersionTag[]}
-model PromptVersionTag{promptVersionId String tagId String promptVersion PromptVersion @relation(fields:[promptVersionId],references:[id],onDelete:Cascade) tag Tag @relation(fields:[tagId],references:[id],onDelete:Cascade) @@id([promptVersionId,tagId])}
-model Platform{id String @id @default(uuid()) key String @unique name String versions PromptVersionPlatform[]}
-model PromptVersionPlatform{promptVersionId String platformId String promptVersion PromptVersion @relation(fields:[promptVersionId],references:[id],onDelete:Cascade) platform Platform @relation(fields:[platformId],references:[id]) @@id([promptVersionId,platformId])}
-model UsageScope{id String @id @default(uuid()) key String @unique name String versions PromptVersionUsage[]}
-model PromptVersionUsage{promptVersionId String usageScopeId String promptVersion PromptVersion @relation(fields:[promptVersionId],references:[id],onDelete:Cascade) usageScope UsageScope @relation(fields:[usageScopeId],references:[id]) @@id([promptVersionId,usageScopeId])}
-model FlightPathStage{id String @id @default(uuid()) stageNumber Int @unique key String @unique nameEn String nameEs String versions PromptVersionFlightPathStage[]}
-model PromptVersionFlightPathStage{promptVersionId String stageId String isPrimary Boolean @default(false) promptVersion PromptVersion @relation(fields:[promptVersionId],references:[id],onDelete:Cascade) stage FlightPathStage @relation(fields:[stageId],references:[id]) @@id([promptVersionId,stageId])}
-model Standard{id String @id @default(uuid()) key String @unique name String description String? versions StandardVersion[]}
-model StandardVersion{id String @id @default(uuid()) standardId String major Int @default(1) minor Int @default(0) requirement String @db.Text isActive Boolean @default(true) standard Standard @relation(fields:[standardId],references:[id]) prompts PromptVersionStandard[] @@unique([standardId,major,minor])}
-model PromptVersionStandard{promptVersionId String standardVersionId String isMandatory Boolean @default(true) promptVersion PromptVersion @relation(fields:[promptVersionId],references:[id],onDelete:Cascade) standardVersion StandardVersion @relation(fields:[standardVersionId],references:[id]) @@id([promptVersionId,standardVersionId])}
-model Component{id String @id @default(uuid()) key String @unique name String type String description String? versions ComponentVersion[]}
-model ComponentVersion{id String @id @default(uuid()) componentId String major Int @default(1) minor Int @default(0) content String @db.Text isActive Boolean @default(true) component Component @relation(fields:[componentId],references:[id]) prompts PromptVersionComponent[] @@unique([componentId,major,minor])}
-model PromptVersionComponent{promptVersionId String componentVersionId String sequence Int? isRequired Boolean @default(true) promptVersion PromptVersion @relation(fields:[promptVersionId],references:[id],onDelete:Cascade) componentVersion ComponentVersion @relation(fields:[componentVersionId],references:[id]) @@id([promptVersionId,componentVersionId])}
-model PromptInput{id String @id @default(uuid()) promptVersionId String key String label String inputType String description String? isRequired Boolean @default(true) sequence Int @default(1) promptVersion PromptVersion @relation(fields:[promptVersionId],references:[id],onDelete:Cascade) @@unique([promptVersionId,key])}
-model PromptOutput{id String @id @default(uuid()) promptVersionId String key String label String outputType String description String? isRequired Boolean @default(true) clientVisible Boolean @default(false) sequence Int @default(1) promptVersion PromptVersion @relation(fields:[promptVersionId],references:[id],onDelete:Cascade) @@unique([promptVersionId,key])}
-model PromptRelationship{id String @id @default(uuid()) sourcePromptId String targetPromptId String type String isRequired Boolean @default(false) notes String? sourcePrompt Prompt @relation("RelationshipSource",fields:[sourcePromptId],references:[id]) targetPrompt Prompt @relation("RelationshipTarget",fields:[targetPromptId],references:[id]) @@unique([sourcePromptId,targetPromptId,type])}
-model AuditEvent{id String @id @default(uuid()) workspaceId String actorEmail String? entityType String entityId String action String reason String? source String? previousState Json? newState Json? occurredAt DateTime @default(now()) workspace Workspace @relation(fields:[workspaceId],references:[id]) @@index([entityType,entityId,occurredAt])}
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PromptVersionStatus {
+  DRAFT
+  PILOT
+  APPROVED
+  SUPERSEDED
+  DEPRECATED
+  ARCHIVED
+}
+
+enum WorkspaceRole {
+  ADMIN
+  APPROVER
+  EDITOR
+  VIEWER
+}
+
+model Workspace {
+  id          String                @id @default(uuid())
+  key         String                @unique
+  name        String
+  brandKey    String
+  domain      String?
+  isActive    Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  memberships WorkspaceMembership[]
+  prompts     Prompt[]
+  auditEvents AuditEvent[]
+}
+
+model User {
+  id              String                @id @default(uuid())
+  email           String                @unique
+  displayName     String?
+  googleSubject   String?               @unique
+  isActive        Boolean               @default(true)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  memberships     WorkspaceMembership[]
+  createdPrompts  Prompt[]              @relation("PromptCreatedBy")
+  createdVersions PromptVersion[]       @relation("VersionCreatedBy")
+}
+
+model WorkspaceMembership {
+  id          String        @id @default(uuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole
+  createdAt   DateTime      @default(now())
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId, role])
+  @@index([workspaceId, role])
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  name      String   @unique
+  sortOrder Int?
+  isActive  Boolean  @default(true)
+  prompts   Prompt[]
+}
+
+model Prompt {
+  id                  String               @id @default(uuid())
+  workspaceId         String
+  key                 String
+  title               String
+  purpose             String?
+  categoryId          String?
+  ownerLabel          String
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  createdById         String?
+  workspace           Workspace            @relation(fields: [workspaceId], references: [id])
+  category            Category?            @relation(fields: [categoryId], references: [id])
+  createdBy           User?                @relation("PromptCreatedBy", fields: [createdById], references: [id])
+  versions            PromptVersion[]
+  sourceRelationships PromptRelationship[] @relation("RelationshipSource")
+  targetRelationships PromptRelationship[] @relation("RelationshipTarget")
+
+  @@unique([workspaceId, key])
+  @@index([workspaceId, title])
+}
+
+model PromptVersion {
+  id                 String                         @id @default(uuid())
+  promptId           String
+  major              Int                            @default(1)
+  minor              Int                            @default(0)
+  patch              Int                            @default(0)
+  canonicalVersionId String                         @unique
+  status             PromptVersionStatus            @default(DRAFT)
+  audience           String?
+  summary            String
+  expectedOutput     String?
+  requiredInputsText String?
+  promptBody         String                         @db.Text
+  changeNotes        String?
+  previousVersionId  String?
+  approverLabel      String?
+  confidentiality    String?
+  approvedAt         DateTime?
+  lastReviewedAt     DateTime?
+  nextReviewAt       DateTime?
+  createdAt          DateTime                       @default(now())
+  updatedAt          DateTime                       @updatedAt
+  createdById        String?
+  prompt             Prompt                         @relation(fields: [promptId], references: [id])
+  createdBy          User?                          @relation("VersionCreatedBy", fields: [createdById], references: [id])
+  previousVersion    PromptVersion?                 @relation("VersionChain", fields: [previousVersionId], references: [id])
+  nextVersions       PromptVersion[]                @relation("VersionChain")
+  tags               PromptVersionTag[]
+  platforms          PromptVersionPlatform[]
+  usages             PromptVersionUsage[]
+  stages             PromptVersionFlightPathStage[]
+  standards          PromptVersionStandard[]
+  components         PromptVersionComponent[]
+  inputs             PromptInput[]
+  outputs            PromptOutput[]
+
+  @@unique([promptId, major, minor, patch])
+  @@index([promptId, status])
+  @@index([status, nextReviewAt])
+}
+
+model Tag {
+  id      String             @id @default(uuid())
+  key     String             @unique
+  label   String
+  prompts PromptVersionTag[]
+}
+
+model PromptVersionTag {
+  promptVersionId String
+  tagId           String
+  promptVersion   PromptVersion @relation(fields: [promptVersionId], references: [id], onDelete: Cascade)
+  tag             Tag           @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([promptVersionId, tagId])
+}
+
+model Platform {
+  id       String                  @id @default(uuid())
+  key      String                  @unique
+  name     String
+  versions PromptVersionPlatform[]
+}
+
+model PromptVersionPlatform {
+  promptVersionId String
+  platformId      String
+  promptVersion   PromptVersion @relation(fields: [promptVersionId], references: [id], onDelete: Cascade)
+  platform        Platform      @relation(fields: [platformId], references: [id])
+
+  @@id([promptVersionId, platformId])
+}
+
+model UsageScope {
+  id       String               @id @default(uuid())
+  key      String               @unique
+  name     String
+  versions PromptVersionUsage[]
+}
+
+model PromptVersionUsage {
+  promptVersionId String
+  usageScopeId    String
+  promptVersion   PromptVersion @relation(fields: [promptVersionId], references: [id], onDelete: Cascade)
+  usageScope      UsageScope    @relation(fields: [usageScopeId], references: [id])
+
+  @@id([promptVersionId, usageScopeId])
+}
+
+model FlightPathStage {
+  id          String                         @id @default(uuid())
+  stageNumber Int                            @unique
+  key         String                         @unique
+  nameEn      String
+  nameEs      String
+  versions    PromptVersionFlightPathStage[]
+}
+
+model PromptVersionFlightPathStage {
+  promptVersionId String
+  stageId         String
+  isPrimary       Boolean         @default(false)
+  promptVersion   PromptVersion   @relation(fields: [promptVersionId], references: [id], onDelete: Cascade)
+  stage           FlightPathStage @relation(fields: [stageId], references: [id])
+
+  @@id([promptVersionId, stageId])
+}
+
+model Standard {
+  id          String            @id @default(uuid())
+  key         String            @unique
+  name        String
+  description String?
+  versions    StandardVersion[]
+}
+
+model StandardVersion {
+  id          String                  @id @default(uuid())
+  standardId  String
+  major       Int                     @default(1)
+  minor       Int                     @default(0)
+  requirement String                  @db.Text
+  isActive    Boolean                 @default(true)
+  standard    Standard                @relation(fields: [standardId], references: [id])
+  prompts     PromptVersionStandard[]
+
+  @@unique([standardId, major, minor])
+}
+
+model PromptVersionStandard {
+  promptVersionId   String
+  standardVersionId String
+  isMandatory       Boolean         @default(true)
+  promptVersion     PromptVersion   @relation(fields: [promptVersionId], references: [id], onDelete: Cascade)
+  standardVersion   StandardVersion @relation(fields: [standardVersionId], references: [id])
+
+  @@id([promptVersionId, standardVersionId])
+}
+
+model Component {
+  id          String             @id @default(uuid())
+  key         String             @unique
+  name        String
+  type        String
+  description String?
+  versions    ComponentVersion[]
+}
+
+model ComponentVersion {
+  id          String                   @id @default(uuid())
+  componentId String
+  major       Int                      @default(1)
+  minor       Int                      @default(0)
+  content     String                   @db.Text
+  isActive    Boolean                  @default(true)
+  component   Component                @relation(fields: [componentId], references: [id])
+  prompts     PromptVersionComponent[]
+
+  @@unique([componentId, major, minor])
+}
+
+model PromptVersionComponent {
+  promptVersionId    String
+  componentVersionId String
+  sequence           Int?
+  isRequired         Boolean          @default(true)
+  promptVersion      PromptVersion    @relation(fields: [promptVersionId], references: [id], onDelete: Cascade)
+  componentVersion   ComponentVersion @relation(fields: [componentVersionId], references: [id])
+
+  @@id([promptVersionId, componentVersionId])
+}
+
+model PromptInput {
+  id              String        @id @default(uuid())
+  promptVersionId String
+  key             String
+  label           String
+  inputType       String
+  description     String?
+  isRequired      Boolean       @default(true)
+  sequence        Int           @default(1)
+  promptVersion   PromptVersion @relation(fields: [promptVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([promptVersionId, key])
+}
+
+model PromptOutput {
+  id              String        @id @default(uuid())
+  promptVersionId String
+  key             String
+  label           String
+  outputType      String
+  description     String?
+  isRequired      Boolean       @default(true)
+  clientVisible   Boolean       @default(false)
+  sequence        Int           @default(1)
+  promptVersion   PromptVersion @relation(fields: [promptVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([promptVersionId, key])
+}
+
+model PromptRelationship {
+  id             String  @id @default(uuid())
+  sourcePromptId String
+  targetPromptId String
+  type           String
+  isRequired     Boolean @default(false)
+  notes          String?
+  sourcePrompt   Prompt  @relation("RelationshipSource", fields: [sourcePromptId], references: [id])
+  targetPrompt   Prompt  @relation("RelationshipTarget", fields: [targetPromptId], references: [id])
+
+  @@unique([sourcePromptId, targetPromptId, type])
+}
+
+model AuditEvent {
+  id            String    @id @default(uuid())
+  workspaceId   String
+  actorEmail    String?
+  entityType    String
+  entityId      String
+  action        String
+  reason        String?
+  source        String?
+  previousState Json?
+  newState      Json?
+  occurredAt    DateTime  @default(now())
+  workspace     Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@index([entityType, entityId, occurredAt])
+}

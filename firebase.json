@@ -1,0 +1,16 @@
+{
+  "apphosting": {
+    "backendId": "vogara-prompt-os",
+    "rootDir": "/",
+    "ignore": ["node_modules", ".git", ".env*", "firebase-debug.log", "firebase-debug.*.log", "data/private", "data/migration"]
+  },
+  "auth": {
+    "authorizedDomains": ["localhost", "prompts.vogaranova.com"],
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Vogara Prompt OS",
+        "supportEmail": "agustin.galindo@vogaranova.com"
+      }
+    }
+  }
+}
