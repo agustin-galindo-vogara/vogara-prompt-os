@@ -28,9 +28,30 @@
 .review-actions form { margin: 0; }
 .reject-form { display: flex; gap: 8px; flex: 1; min-width: 300px; }
 .reject-form input { flex: 1; }
+.compare-meta { margin-bottom: 20px; padding: 0; overflow: hidden; }
+.compare-header, .compare-meta-row { display: grid; grid-template-columns: 180px 1fr 1fr; }
+.compare-header { background: #f0f3f6; color: var(--brand-primary); }
+.compare-header > *, .compare-meta-row > * { padding: 14px 16px; border-right: 1px solid #e2e5e9; }
+.compare-meta-row { border-top: 1px solid #e2e5e9; }
+.compare-meta-row > div { white-space: pre-wrap; line-height: 1.5; }
+.compare-meta-row.is-changed { background: #fffaf0; }
+.diff-panel { padding: 0; overflow: hidden; }
+.diff-panel .panel-heading { padding: 22px 24px 0; }
+.diff-grid { display: grid; grid-template-columns: 1fr 1fr; overflow: auto; max-height: 72vh; border-top: 1px solid #e2e5e9; }
+.diff-heading { position: sticky; top: 0; z-index: 2; background: #f0f3f6; color: var(--brand-primary); padding: 12px 16px; font-weight: 800; border-right: 1px solid #d9dde2; }
+.diff-row { display: contents; }
+.diff-cell { display: grid; grid-template-columns: 44px minmax(0, 1fr); min-height: 28px; border-right: 1px solid #e2e5e9; border-top: 1px solid #f0f1f3; }
+.diff-cell > span { padding: 5px 8px; color: #8a9097; background: #f7f8fa; text-align: right; user-select: none; }
+.diff-cell code { padding: 5px 9px; white-space: pre-wrap; word-break: break-word; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.diff-cell--changed { background: #fff3d9; }
+.diff-cell--removed { background: #ffebe9; }
+.diff-cell--added { background: #e8f7ee; }
 @media (max-width: 720px) {
   .page-heading--actions { align-items: flex-start; flex-direction: column; }
   .form-grid, .review-meta { grid-template-columns: 1fr; }
   .form-span { grid-column: auto; }
   .reject-form { min-width: 100%; flex-direction: column; }
+  .compare-header, .compare-meta-row { grid-template-columns: 110px minmax(180px, 1fr) minmax(180px, 1fr); }
+  .compare-meta { overflow: auto; }
+  .diff-grid { min-width: 820px; }
 }

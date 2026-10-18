@@ -126,6 +126,68 @@ export async function createPromptVersion(formData: FormData) {
   redirect(`/reviews?created=${result.id}`);
 }
 
+export async function updatePromptDraft(formData: FormData) {
+  const user = await requireSession();
+  const versionId = value(formData, "versionId");
+  if (!canEditPrompt(user.roles)) redirect("/");
+  const parsed = versionSchema.extend({ versionId: z.string().uuid() }).safeParse({
+    versionId,
+    promptKey: value(formData, "promptKey"),
+    summary: value(formData, "summary"),
+    audience: value(formData, "audience") || undefined,
+    classification: value(formData, "classification") || undefined,
+    expectedOutput: value(formData, "expectedOutput") || undefined,
+    requiredInputsText: value(formData, "requiredInputsText") || undefined,
+    promptBody: value(formData, "promptBody"),
+    changeNotes: value(formData, "changeNotes"),
+    nextReviewAt: value(formData, "nextReviewAt"),
+  });
+  if (!parsed.success) redirect(`/reviews/${versionId}/edit?error=invalid`);
+  const current = await db.promptVersion.findFirst({
+    where: { id: parsed.data.versionId, status: "DRAFT", prompt: { key: parsed.data.promptKey } },
+    include: { prompt: true },
+  });
+  if (!current) redirect("/reviews?error=transition");
+  const nextReviewAt = new Date(`${parsed.data.nextReviewAt}T00:00:00.000Z`);
+  const comparable = ["summary", "audience", "classification", "expectedOutput", "requiredInputsText", "promptBody", "changeNotes"] as const;
+  const changedFields: string[] = comparable.filter((field) => (current[field] ?? "") !== (parsed.data[field] ?? ""));
+  if (current.nextReviewAt?.toISOString().slice(0, 10) !== parsed.data.nextReviewAt) changedFields.push("nextReviewAt");
+  await db.$transaction(async (tx) => {
+    const updated = await tx.promptVersion.updateMany({
+      where: { id: current.id, status: "DRAFT" },
+      data: {
+        summary: parsed.data.summary,
+        audience: parsed.data.audience,
+        classification: parsed.data.classification,
+        expectedOutput: parsed.data.expectedOutput,
+        requiredInputsText: parsed.data.requiredInputsText,
+        promptBody: parsed.data.promptBody,
+        changeNotes: parsed.data.changeNotes,
+        nextReviewAt,
+      },
+    });
+    if (updated.count !== 1) throw new Error("DRAFT_LOCKED_FOR_REVIEW");
+    await tx.auditEvent.create({
+      data: {
+        workspaceId: current.prompt.workspaceId,
+        actorEmail: user.email,
+        entityType: "PromptVersion",
+        entityId: current.id,
+        action: "DraftUpdated",
+        reason: parsed.data.changeNotes,
+        source: "PROMPT_OS",
+        previousState: { status: "DRAFT", updatedAt: current.updatedAt },
+        newState: { status: "DRAFT", changedFields },
+      },
+    });
+  });
+  revalidatePath("/");
+  revalidatePath("/reviews");
+  revalidatePath(`/reviews/${current.id}/edit`);
+  revalidatePath(`/reviews/${current.id}/compare`);
+  redirect("/reviews?updated=1");
+}
+
 export async function submitPromptVersion(formData: FormData) {
   const user = await requireSession();
   if (!canEditPrompt(user.roles)) redirect("/");
