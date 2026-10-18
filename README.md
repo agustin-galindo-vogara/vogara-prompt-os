@@ -28,3 +28,5 @@ Authentication is restricted server-side to verified `@vogaranova.com` accounts.
 
 ## Deployment
 Firebase App Hosting configuration lives in `firebase.json` and `apphosting.yaml`. `DATABASE_URL` and `PROMPT_OS_ADMIN_EMAIL` must be stored as App Hosting secrets, never committed. Run production migrations with `npm run db:deploy` before serving a release that changes the Prisma schema.
+
+The backend uses Direct VPC egress to reach the private Cloud SQL address. The initial production schema is tracked under `prisma/migrations`; schema changes must be committed as immutable migrations.
