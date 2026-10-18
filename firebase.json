@@ -5,7 +5,11 @@
     "ignore": ["node_modules", ".git", ".env*", "firebase-debug.log", "firebase-debug.*.log", "data/private", "data/migration"]
   },
   "auth": {
-    "authorizedDomains": ["localhost", "prompts.vogaranova.com"],
+    "authorizedDomains": [
+      "localhost",
+      "prompts.vogaranova.com",
+      "vogara-prompt-os--vogara-prompt-os.us-east4.hosted.app"
+    ],
     "providers": {
       "googleSignIn": {
         "oAuthBrandDisplayName": "Vogara Prompt OS",
