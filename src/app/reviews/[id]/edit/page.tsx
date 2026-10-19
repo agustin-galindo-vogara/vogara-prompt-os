@@ -1,4 +1,3 @@
-/Users/agustingalindo/.zprofile:export:1: not valid in this context: export HOMEBREW_PREFIX
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { updatePromptDraft } from "@/app/actions/prompt-governance";

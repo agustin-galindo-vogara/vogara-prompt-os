@@ -1,4 +1,3 @@
-/Users/agustingalindo/.zprofile:export:1: not valid in this context: export HOMEBREW_PREFIX
 import type { NextConfig } from "next";
 const securityHeaders = [
   { key: "Content-Security-Policy", value: "frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'" },

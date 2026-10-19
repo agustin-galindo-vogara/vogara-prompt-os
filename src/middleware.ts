@@ -1,4 +1,3 @@
-/Users/agustingalindo/.zprofile:export:1: not valid in this context: export HOMEBREW_PREFIX
 import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(request: NextRequest) {

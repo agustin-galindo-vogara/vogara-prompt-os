@@ -1,4 +1,3 @@
-/Users/agustingalindo/.zprofile:export:1: not valid in this context: export HOMEBREW_PREFIX
 import Link from "next/link";
 import type { Prisma, PromptVersionStatus } from "@prisma/client";
 import { PromptCard } from "@/components/prompt-card";

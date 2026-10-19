@@ -1,4 +1,3 @@
-/Users/agustingalindo/.zprofile:export:1: not valid in this context: export HOMEBREW_PREFIX
 import assert from "node:assert/strict";
 import test from "node:test";
 import { formatDuration, reviewCycleMetrics } from "../src/lib/analytics.ts";

@@ -1,4 +1,3 @@
-/Users/agustingalindo/.zprofile:export:1: not valid in this context: export HOMEBREW_PREFIX
 import Link from "next/link";
 import { addReviewComment, approvePromptVersion, rejectPromptVersion, submitPromptVersion } from "@/app/actions/prompt-governance";
 import { canApprovePrompt, canEditPrompt } from "@/lib/auth/policy";

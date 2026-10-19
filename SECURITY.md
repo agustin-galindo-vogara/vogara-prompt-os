@@ -1,4 +1,3 @@
-/Users/agustingalindo/.zprofile:export:1: not valid in this context: export HOMEBREW_PREFIX
 # Security
 
 The repository currently has public visibility. Treat all committed source as publicly visible.

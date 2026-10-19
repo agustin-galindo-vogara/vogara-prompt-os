@@ -1,4 +1,3 @@
-/Users/agustingalindo/.zprofile:export:1: not valid in this context: export HOMEBREW_PREFIX
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
