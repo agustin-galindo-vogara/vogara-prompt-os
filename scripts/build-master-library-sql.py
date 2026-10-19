@@ -43,6 +43,57 @@ STAGE_MAP = {
     "Shape / Build": ["VALIDATE_SHAPE", "CREATE_ADAPT"],
 }
 
+UNIVERSAL_STANDARDS = {
+    "EVIDENCE_CLASSIFICATION",
+    "ORDERED_ANALYSIS",
+    "AI_ACCOUNTABILITY",
+    "NO_HALLUCINATION",
+    "DEFINITION_OF_DONE",
+    "FINAL_QUALITY_TEST",
+    "VERSION_GOVERNANCE",
+}
+
+
+def contains_any(value: str, terms: list[str]) -> bool:
+    normalized = value.lower()
+    return any(term.lower() in normalized for term in terms)
+
+
+def standard_applies(standard_key: str, row: dict) -> bool:
+    """Translate PROMPT_STANDARDS.Application into deterministic prompt links."""
+    if standard_key in UNIVERSAL_STANDARDS:
+        return True
+
+    category = slug(str(row.get("Category") or ""))
+    classification = str(row.get("Classification") or "").upper()
+    usage = str(row.get("Usage") or "")
+    searchable = " ".join(
+        str(row.get(field) or "")
+        for field in ("Title", "Summary", "Audience", "Expected Output", "Required Inputs", "Tags")
+    )
+    delivery_categories = {
+        "PMO_GOVERNANCE", "FLIGHTPATH_DELIVERY", "FUNCTIONAL_DELIVERY",
+        "ARCHITECTURE_TECHNICAL", "ATLAS_AI_ENABLEMENT",
+    }
+
+    if standard_key == "BUSINESS_OUTCOMES_FIRST":
+        return category not in {"OPERATIONS_TALENT", "EXECUTIVE_COMMUNICATION"}
+    if standard_key == "FLIGHTPATH_ALIGNMENT":
+        return category in delivery_categories | {"COMMERCIAL_ESTIMATION", "PARTNER_GOVERNANCE"} or contains_any(searchable, ["flightpath"])
+    if standard_key == "TRACEABILITY":
+        return category in delivery_categories or contains_any(classification, ["DELIVERY", "FUNCTIONAL", "TECHNICAL", "PRODUCT"])
+    if standard_key == "FIT_TO_STANDARD":
+        return contains_any(searchable, ["salesforce"])
+    if standard_key == "SYSTEM_OF_RECORD":
+        return category in delivery_categories or contains_any(classification, ["DELIVERY", "FUNCTIONAL", "TECHNICAL", "PRODUCT"])
+    if standard_key == "ATLAS_BOUNDARY":
+        return category in {"PMO_GOVERNANCE", "FLIGHTPATH_DELIVERY", "FUNCTIONAL_DELIVERY", "PARTNER_GOVERNANCE", "ATLAS_AI_ENABLEMENT"} or contains_any(classification, ["DELIVERY", "FUNCTIONAL", "PRODUCT"])
+    if standard_key == "CURRENT_EXTERNAL_EVIDENCE":
+        return category == "ADVISORY_RESEARCH" or contains_any(searchable, ["research", "regulation", "regulatory", "official salesforce", "license", "licensing", "industry intelligence", "product documentation"])
+    if standard_key == "INTERNAL_VS_EXTERNAL":
+        return contains_any(usage, ["client-facing", "partner-facing"])
+    return False
+
 
 def stable_id(kind: str, key: str) -> str:
     return str(uuid.uuid5(NAMESPACE, f"{kind}:{key}"))
@@ -239,15 +290,21 @@ def build_sql(input_path: Path) -> tuple[str, dict]:
         key = slug(name)
         standard_id = stable_id("standard", key)
         standard_version_id = stable_id("standard-version", key + ":1.0")
-        standard_version_ids.append((standard_version_id, str(row.get("Status") or "").startswith("Mandatory")))
+        standard_version_ids.append((key, standard_version_id, str(row.get("Status") or "").startswith("Mandatory")))
         emit(lines, f'''INSERT INTO "Standard" ("id","key","name","description") VALUES ({sql(standard_id)},{sql(key)},{sql(name)},{sql(row.get('Application'))}) ON CONFLICT ("key") DO UPDATE SET "name"=EXCLUDED."name","description"=EXCLUDED."description"''')
         emit(lines, f'''INSERT INTO "StandardVersion" ("id","standardId","major","minor","requirement","isActive") VALUES ({sql(standard_version_id)},{sql(standard_id)},1,0,{sql(row.get('Requirement'))},TRUE) ON CONFLICT ("standardId","major","minor") DO UPDATE SET "requirement"=EXCLUDED."requirement","isActive"=TRUE''')
 
-    current_ids = [version_id_by_canonical[str(row["Prompt ID"]).strip()] for row in current]
-    for version_id in current_ids:
+    current_versions = [(version_id_by_canonical[str(row["Prompt ID"]).strip()], row) for row in current]
+    for version_id, row in current_versions:
         emit(lines, f'''DELETE FROM "PromptVersionStandard" WHERE "promptVersionId"={sql(version_id)}''')
-        for standard_version_id, mandatory in standard_version_ids:
-            emit(lines, f'''INSERT INTO "PromptVersionStandard" ("promptVersionId","standardVersionId","isMandatory") VALUES ({sql(version_id)},{sql(standard_version_id)},{sql(mandatory)}) ON CONFLICT DO NOTHING''')
+        for standard_key, standard_version_id, mandatory in standard_version_ids:
+            if standard_applies(standard_key, row):
+                emit(lines, f'''INSERT INTO "PromptVersionStandard" ("promptVersionId","standardVersionId","isMandatory") VALUES ({sql(version_id)},{sql(standard_version_id)},{sql(mandatory)}) ON CONFLICT DO NOTHING''')
+
+    # Components are one-to-one with their source Prompt ID. Clear imported
+    # current-version links first so removed or renamed components cannot linger.
+    for version_id, _row in current_versions:
+        emit(lines, f'''DELETE FROM "PromptVersionComponent" WHERE "promptVersionId"={sql(version_id)}''')
 
     for row in components:
         canonical = str(row.get("Prompt ID") or "").strip()
