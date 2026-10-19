@@ -3,6 +3,13 @@ import { formatDuration, reviewCycleMetrics } from "@/lib/analytics";
 import { requireSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 
+function outcomeState(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const state = value as Record<string, unknown>;
+  if (typeof state.rating !== "number" || !["SUCCESS", "PARTIAL", "NO_RESULT"].includes(String(state.outcome))) return null;
+  return { rating: state.rating, outcome: String(state.outcome) };
+}
+
 export default async function AnalyticsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   await requireSession();
   const query = await searchParams;
@@ -22,7 +29,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     db.promptVersion.count({ where: { status: "APPROVED", prompt: promptFilter } }),
     db.promptVersion.count({ where: { status: { in: ["DRAFT", "PILOT"] }, prompt: promptFilter } }),
     db.promptVersion.count({ where: { status: "APPROVED", nextReviewAt: { lte: new Date() }, prompt: promptFilter } }),
-    db.auditEvent.findMany({ where: eventWhere, orderBy: { occurredAt: "asc" }, select: { entityId: true, action: true, occurredAt: true } }),
+    db.auditEvent.findMany({ where: eventWhere, orderBy: { occurredAt: "asc" }, select: { entityId: true, action: true, occurredAt: true, newState: true } }),
     db.flightPathStage.findMany({ orderBy: { stageNumber: "asc" }, include: { _count: { select: { versions: { where: { promptVersion: { status: "APPROVED", prompt: promptFilter } } } } } } }),
     db.standard.findMany({ include: { versions: { where: { isActive: true }, include: { _count: { select: { prompts: { where: { promptVersion: { status: "APPROVED", prompt: promptFilter } } } } } } } } }),
     db.component.findMany({ include: { versions: { where: { isActive: true }, include: { _count: { select: { prompts: { where: { promptVersion: { status: "APPROVED", prompt: promptFilter } } } } } } } } }),
@@ -30,6 +37,13 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
   const reviewEvents = events.filter((event) => ["SubmittedForApproval", "Approved", "ChangesRequested"].includes(event.action));
   const cycle = reviewCycleMetrics(reviewEvents);
   const copies = events.filter((event) => event.action === "PromptCopied");
+  const runnerSessions = events.filter((event) => event.action === "PromptRunPrepared");
+  const outcomes = events.filter((event) => event.action === "PromptOutcomeRecorded").map((event) => outcomeState(event.newState)).filter((item): item is { rating: number; outcome: string } => Boolean(item));
+  const averageRating = outcomes.length ? outcomes.reduce((sum, item) => sum + item.rating, 0) / outcomes.length : 0;
+  const successful = outcomes.filter((item) => item.outcome === "SUCCESS").length;
+  const partial = outcomes.filter((item) => item.outcome === "PARTIAL").length;
+  const noResult = outcomes.filter((item) => item.outcome === "NO_RESULT").length;
+  const usefulRate = outcomes.length ? Math.round(((successful + partial) / outcomes.length) * 100) : 0;
   const copyCounts = new Map<string, number>();
   for (const event of copies) copyCounts.set(event.entityId, (copyCounts.get(event.entityId) ?? 0) + 1);
   const topCopyIds = [...copyCounts.entries()].sort((left, right) => right[1] - left[1]).slice(0, 8).map(([id]) => id);
@@ -45,6 +59,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Pr
     <section className="page-heading page-heading--actions"><div><span className="eyebrow">ANALYTICS</span><h1>Library health and governance performance.</h1><p>Live measures from approved content, review decisions, reuse events and governed relationships.</p></div><Link className="button button--ghost" href="/analytics/audit">Open Audit Explorer</Link></section>
     <form className="panel analytics-filter" action="/analytics" method="get"><label><span>Period</span><select name="period" defaultValue={String(period)}><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last 12 months</option></select></label><label><span>Category</span><select name="category" defaultValue={categoryKey}><option value="all">All categories</option>{categories.map((category) => <option value={category.key} key={category.id}>{category.name}</option>)}</select></label><button className="button" type="submit">Apply filters</button></form>
     <section className="metrics metrics--six">{metrics.map(([label,value,detail]) => <div className="metric" key={label}><strong>{value}</strong><span>{label}</span><small>{detail}</small></div>)}</section>
+    <section className="panel outcome-panel"><div><span className="eyebrow">PROMPT OUTCOMES</span><h2>Runner effectiveness</h2><p>Aggregated signals only. Variable values and generated content are never stored.</p></div><div className="outcome-metrics"><div><strong>{runnerSessions.length}</strong><span>Runner sessions</span></div><div><strong>{outcomes.length}</strong><span>Rated outcomes</span></div><div><strong>{averageRating ? averageRating.toFixed(1) : "—"}</strong><span>Average rating</span></div><div><strong>{outcomes.length ? `${usefulRate}%` : "—"}</strong><span>Useful outcomes</span></div></div><div className="outcome-distribution"><div><span>Successful</span><strong>{successful}</strong></div><div><span>Partial</span><strong>{partial}</strong></div><div><span>No result</span><strong>{noResult}</strong></div></div></section>
     <section className="analytics-grid">
       <article className="panel"><div className="panel-heading"><h2>FlightPath coverage</h2><span>Approved prompt mappings</span></div><div className="analytics-bars">{stages.map((stage) => <div className="analytics-row" key={stage.id}><strong>{stage.stageNumber}. {stage.nameEn}</strong><div className="analytics-track"><div className="analytics-fill" style={{ width: `${(stage._count.versions / maxStage) * 100}%` }}/></div><span>{stage._count.versions}</span></div>)}</div></article>
       <article className="panel"><div className="panel-heading"><h2>Most reused prompts</h2><span>{period} days</span></div>{topCopyIds.length ? <div className="ranking-list">{topCopyIds.map((id, index) => { const version=copiedById.get(id); return version ? <Link href={`/library/${version.prompt.key}`} key={id}><span>{index + 1}</span><div><strong>{version.prompt.title}</strong><small>V{version.major}.{version.minor}.{version.patch}</small></div><b>{copyCounts.get(id)} copies</b></Link> : null; })}</div> : <div className="empty-state"><strong>No reuse events in this period</strong><p>New copy activity is now being recorded.</p></div>}</article>

@@ -7,12 +7,13 @@ import { buildLineDiff } from "@/lib/text-diff";
 
 function text(value: string | null) { return value?.trim() || "—"; }
 function date(value: Date | null) { return value ? value.toISOString().slice(0, 10) : "—"; }
+function variables(items: Array<{ key: string; label: string; inputType: string; isRequired: boolean }>) { return items.length ? items.map((item) => `${item.label} ({{${item.key}}}, ${item.inputType}${item.isRequired ? ", required" : ""})`).join("\n") : "Automatic placeholder detection"; }
 
 export default async function CompareVersionPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireSession(["admin", "approver", "editor"]);
   const { id } = await params;
   const workspaceKey = process.env.DEFAULT_WORKSPACE_KEY ?? "VOGARA_NOVA";
-  const version = await db.promptVersion.findFirst({ where: { id, prompt: { workspace: { key: workspaceKey, isActive: true } } }, include: { prompt: { include: { category: true } }, previousVersion: true } });
+  const version = await db.promptVersion.findFirst({ where: { id, prompt: { workspace: { key: workspaceKey, isActive: true } } }, include: { prompt: { include: { category: true } }, inputs: { orderBy: { sequence: "asc" } }, previousVersion: { include: { inputs: { orderBy: { sequence: "asc" } } } } } });
   if (!version?.previousVersion) notFound();
   const activity = await db.auditEvent.findMany({ where: { entityType: "PromptVersion", entityId: version.id }, orderBy: { occurredAt: "desc" } });
   const previous = version.previousVersion;
@@ -21,6 +22,7 @@ export default async function CompareVersionPage({ params }: { params: Promise<{
     ["Audience", text(previous.audience), text(version.audience)],
     ["Classification", text(previous.classification), text(version.classification)],
     ["Required inputs", text(previous.requiredInputsText), text(version.requiredInputsText)],
+    ["Runner variables", variables(previous.inputs), variables(version.inputs)],
     ["Expected output", text(previous.expectedOutput), text(version.expectedOutput)],
     ["Next review", date(previous.nextReviewAt), date(version.nextReviewAt)],
     ["Change notes", text(previous.changeNotes), text(version.changeNotes)],

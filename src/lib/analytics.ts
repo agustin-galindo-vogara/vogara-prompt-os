@@ -38,6 +38,8 @@ export const auditActionLabels: Record<string, string> = {
   Approved: "Approved",
   Superseded: "Version superseded",
   PromptCopied: "Prompt copied",
+  PromptRunPrepared: "Runner session prepared",
+  PromptOutcomeRecorded: "Prompt outcome recorded",
   MemberProvisioned: "Member provisioned",
   MemberRolesUpdated: "Member roles updated",
   MemberDeactivated: "Member deactivated",

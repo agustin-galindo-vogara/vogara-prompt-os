@@ -31,6 +31,7 @@ export async function GET(_request: Request, context: { params: Promise<{ key: s
           promptBody: true,
           approvedAt: true,
           nextReviewAt: true,
+          inputs: { orderBy: { sequence: "asc" }, select: { key: true, label: true, inputType: true, description: true, isRequired: true, sequence: true } },
         },
       },
     },

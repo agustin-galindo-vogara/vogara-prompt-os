@@ -27,10 +27,22 @@ const reviewMessageSchema = transitionSchema.extend({
 const submissionSchema = reviewMessageSchema.extend({
   reviewer: z.string().trim().toLowerCase().email(),
 });
+const runnerInputSchema = z.array(z.object({
+  key: z.string().trim().regex(/^[a-zA-Z][\w-]{0,63}$/),
+  label: z.string().trim().min(1).max(120),
+  inputType: z.enum(["text", "textarea", "number", "date"]),
+  description: z.string().trim().max(500).optional().nullable(),
+  isRequired: z.boolean(),
+})).max(20).refine((items) => new Set(items.map((item) => item.key.toLowerCase())).size === items.length, "Variable keys must be unique");
 
 function value(formData: FormData, key: string) {
   const item = formData.get(key);
   return typeof item === "string" ? item : "";
+}
+
+function runnerInputs(formData: FormData) {
+  try { return runnerInputSchema.safeParse(JSON.parse(value(formData, "runnerInputsJson") || "[]")); }
+  catch { return runnerInputSchema.safeParse(null); }
 }
 
 async function auditActor(email: string, name?: string) {
@@ -57,7 +69,8 @@ export async function createPromptVersion(formData: FormData) {
     changeNotes: value(formData, "changeNotes"),
     nextReviewAt: value(formData, "nextReviewAt"),
   });
-  if (!parsed.success) redirect(`/library/${promptKey}/new-version?error=invalid`);
+  const inputsParsed = runnerInputs(formData);
+  if (!parsed.success || !inputsParsed.success) redirect(`/library/${promptKey}/new-version?error=invalid`);
 
   const workspaceKey = process.env.DEFAULT_WORKSPACE_KEY ?? "VOGARA_NOVA";
   const result = await db.$transaction(async (tx) => {
@@ -109,7 +122,7 @@ export async function createPromptVersion(formData: FormData) {
     if (source.stages.length) await tx.promptVersionFlightPathStage.createMany({ data: source.stages.map((item) => ({ promptVersionId: created.id, stageId: item.stageId, isPrimary: item.isPrimary })) });
     if (source.standards.length) await tx.promptVersionStandard.createMany({ data: source.standards.map((item) => ({ promptVersionId: created.id, standardVersionId: item.standardVersionId, isMandatory: item.isMandatory })) });
     if (source.components.length) await tx.promptVersionComponent.createMany({ data: source.components.map((item) => ({ promptVersionId: created.id, componentVersionId: item.componentVersionId, sequence: item.sequence, isRequired: item.isRequired })) });
-    if (source.inputs.length) await tx.promptInput.createMany({ data: source.inputs.map(({ id: _id, ...item }) => ({ ...item, promptVersionId: created.id })) });
+    if (inputsParsed.data.length) await tx.promptInput.createMany({ data: inputsParsed.data.map((item, index) => ({ promptVersionId: created.id, key: item.key, label: item.label, inputType: item.inputType, description: item.description || null, isRequired: item.isRequired, sequence: index + 1 })) });
     if (source.outputs.length) await tx.promptOutput.createMany({ data: source.outputs.map(({ id: _id, ...item }) => ({ ...item, promptVersionId: created.id })) });
     await tx.auditEvent.create({
       data: {
@@ -149,15 +162,18 @@ export async function updatePromptDraft(formData: FormData) {
     changeNotes: value(formData, "changeNotes"),
     nextReviewAt: value(formData, "nextReviewAt"),
   });
-  if (!parsed.success) redirect(`/reviews/${versionId}/edit?error=invalid`);
+  const inputsParsed = runnerInputs(formData);
+  if (!parsed.success || !inputsParsed.success) redirect(`/reviews/${versionId}/edit?error=invalid`);
   const current = await db.promptVersion.findFirst({
     where: { id: parsed.data.versionId, status: "DRAFT", prompt: { key: parsed.data.promptKey } },
-    include: { prompt: true },
+    include: { prompt: true, inputs: { orderBy: { sequence: "asc" } } },
   });
   if (!current) redirect("/reviews?error=transition");
   const nextReviewAt = new Date(`${parsed.data.nextReviewAt}T00:00:00.000Z`);
   const comparable = ["summary", "audience", "classification", "expectedOutput", "requiredInputsText", "promptBody", "changeNotes"] as const;
   const changedFields: string[] = comparable.filter((field) => (current[field] ?? "") !== (parsed.data[field] ?? ""));
+  const currentInputs = current.inputs.map((item) => ({ key: item.key, label: item.label, inputType: item.inputType, description: item.description, isRequired: item.isRequired }));
+  if (JSON.stringify(currentInputs) !== JSON.stringify(inputsParsed.data.map((item) => ({ ...item, description: item.description || null })))) changedFields.push("runnerInputs");
   if (current.nextReviewAt?.toISOString().slice(0, 10) !== parsed.data.nextReviewAt) changedFields.push("nextReviewAt");
   await db.$transaction(async (tx) => {
     const updated = await tx.promptVersion.updateMany({
@@ -174,6 +190,8 @@ export async function updatePromptDraft(formData: FormData) {
       },
     });
     if (updated.count !== 1) throw new Error("DRAFT_LOCKED_FOR_REVIEW");
+    await tx.promptInput.deleteMany({ where: { promptVersionId: current.id } });
+    if (inputsParsed.data.length) await tx.promptInput.createMany({ data: inputsParsed.data.map((item, index) => ({ promptVersionId: current.id, key: item.key, label: item.label, inputType: item.inputType, description: item.description || null, isRequired: item.isRequired, sequence: index + 1 })) });
     await tx.auditEvent.create({
       data: {
         workspaceId: current.prompt.workspaceId,

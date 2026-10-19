@@ -17,7 +17,7 @@ export function PromptCard({ prompt }: { prompt: PromptSummary }) {
     </div>
     <div className="prompt-card__actions">
       <Link className="button button--ghost" href={`/library/${prompt.key}`}>Open</Link>
-      <Link className="button" href={`/library/${prompt.key}`}>Use Prompt</Link>
+      <Link className="button" href={prompt.statusKey === "approved" ? `/library/${prompt.key}/run` : `/library/${prompt.key}`}>{prompt.statusKey === "approved" ? "Run prompt" : "View version"}</Link>
     </div>
   </article>;
 }
