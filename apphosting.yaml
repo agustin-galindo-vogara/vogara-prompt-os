@@ -1,0 +1,46 @@
+runConfig:
+  cpu: 1
+  memoryMiB: 512
+  minInstances: 0
+  maxInstances: 10
+  concurrency: 80
+  vpcAccess:
+    egress: PRIVATE_RANGES_ONLY
+    networkInterfaces:
+      - network: default
+
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyCvw97Fjo9-c6kDJ2pZtto9SMHz329vEDs
+    availability: [ BUILD, RUNTIME ]
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: vogara-prompt-os.firebaseapp.com
+    availability: [ BUILD, RUNTIME ]
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: vogara-prompt-os
+    availability: [ BUILD, RUNTIME ]
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:862587934575:web:ccaa242afeef02d23efa9a
+    availability: [ BUILD, RUNTIME ]
+  - variable: FIREBASE_PROJECT_ID
+    value: vogara-prompt-os
+    availability: [ RUNTIME ]
+  - variable: AUTH_ALLOWED_DOMAIN
+    value: vogaranova.com
+    availability: [ RUNTIME ]
+  - variable: DEFAULT_WORKSPACE_KEY
+    value: VOGARA_NOVA
+    availability: [ RUNTIME ]
+  - variable: DEFAULT_BRAND_KEY
+    value: vogara-nova
+    availability: [ BUILD, RUNTIME ]
+  - variable: NEXT_PUBLIC_APP_NAME
+    value: Vogara Prompt OS
+    availability: [ BUILD, RUNTIME ]
+  - variable: NEXT_PUBLIC_APP_DOMAIN
+    value: prompts.vogaranova.com
+    availability: [ BUILD, RUNTIME ]
+  - variable: DATABASE_URL
+    secret: databaseUrl
+  - variable: PROMPT_OS_ADMIN_EMAIL
+    secret: promptOsAdminEmail

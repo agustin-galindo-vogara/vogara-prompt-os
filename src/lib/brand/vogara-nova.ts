@@ -1,0 +1,2 @@
+import type { BrandTheme } from "./types";
+export const vogaraNovaTheme:BrandTheme={key:"vogara-nova",organizationName:"Vogara Nova",productName:"Vogara Prompt OS",descriptor:"Governed Intelligence & Prompt Operating System",domain:"prompts.vogaranova.com",logoPath:"/brand/vogara-nova.svg",colors:{primary:"#003968",secondary:"#63666F",surface:"#FFFFFF",background:"#F6F7F9",text:"#1A1A1A",mutedText:"#63666F",border:"#D0D1DB"},typography:{heading:'"Superior Title","Arial Narrow",Arial,sans-serif',body:'"Brother 1816",Inter,Arial,sans-serif'}};

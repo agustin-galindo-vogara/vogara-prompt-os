@@ -1,0 +1,9 @@
+.sidebar nav a.active{background:#edf3f8;color:var(--brand-primary);font-weight:700}
+.avatar{border:0;cursor:pointer}
+.sign-in-page{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at top right,rgba(0,57,104,.15),transparent 38%),var(--background)}
+.sign-in-card{width:min(520px,100%);display:grid;justify-items:start;gap:18px;padding:48px;background:#fff;border:1px solid var(--brand-border);border-radius:28px;box-shadow:var(--shadow)}
+.sign-in-card h1{font-size:clamp(38px,7vw,58px)}
+.sign-in-card p{margin:0;color:var(--muted);line-height:1.6}
+.sign-in-card .button{width:100%;margin-top:8px}
+.sign-in-card .auth-error{color:#9b1c1c}
+.prompt-body{margin:24px 0 0;padding:24px;white-space:pre-wrap;overflow-wrap:anywhere;background:#f7f8fa;border:1px solid var(--brand-border);border-radius:14px;font:14px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace}
