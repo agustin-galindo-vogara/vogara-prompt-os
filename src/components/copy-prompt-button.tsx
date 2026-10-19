@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 
-export function CopyPromptButton({ body }: { body: string }) {
+export function CopyPromptButton({ body, promptKey }: { body: string; promptKey: string }) {
   const [copied, setCopied] = useState(false);
   async function copy() {
     await navigator.clipboard.writeText(body);
+    void fetch(`/api/prompts/${encodeURIComponent(promptKey)}/copy`, { method: "POST" });
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   }
