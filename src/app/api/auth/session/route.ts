@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { resolveRoles } from "@/lib/auth/policy";
+import { resolveWorkspaceRoles } from "@/lib/auth/access";
 import { SESSION_COOKIE, SESSION_MAX_AGE_MS } from "@/lib/auth/session";
 import { adminAuth } from "@/lib/firebase/admin";
 
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   try {
     const decoded = await adminAuth.verifyIdToken(parsed.data.idToken, true);
     const email = decoded.email?.trim().toLowerCase();
-    if (!email || decoded.email_verified !== true || resolveRoles(email).length === 0) {
+    if (!email || decoded.email_verified !== true || (await resolveWorkspaceRoles(email)).length === 0) {
       return NextResponse.json({ error: "Use an approved Vogara Nova account." }, { status: 403 });
     }
 

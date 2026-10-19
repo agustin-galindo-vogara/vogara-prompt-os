@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookOpenText, Boxes, ClipboardCheck, Component, Gauge, GitBranch, LogOut, Search } from "lucide-react";
+import { BarChart3, BookOpenText, Boxes, ClipboardCheck, Component, Gauge, GitBranch, LogOut, Search, Users } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 
 const nav = [
@@ -13,6 +13,7 @@ const nav = [
   { label: "Standards", href: "/standards", icon: Boxes },
   { label: "Components", href: "/components", icon: Component },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
+  { label: "Members", href: "/settings/members", icon: Users },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {

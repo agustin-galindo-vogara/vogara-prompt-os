@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { canApprovePrompt, canEditPrompt } from "@/lib/auth/policy";
+import { isEnvironmentAdmin } from "@/lib/auth/policy";
 import { requireSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 
@@ -24,7 +25,7 @@ const reviewMessageSchema = transitionSchema.extend({
   message: z.string().trim().min(5).max(2000),
 });
 const submissionSchema = reviewMessageSchema.extend({
-  reviewer: z.string().trim().min(3).max(200),
+  reviewer: z.string().trim().toLowerCase().email(),
 });
 
 function value(formData: FormData, key: string) {
@@ -205,6 +206,12 @@ export async function submitPromptVersion(formData: FormData) {
   if (!parsed.success) redirect("/reviews?error=invalid");
   const version = await db.promptVersion.findUnique({ where: { id: parsed.data.versionId }, include: { prompt: true } });
   if (!version || version.status !== "DRAFT") redirect("/reviews?error=transition");
+  const workspaceKey = process.env.DEFAULT_WORKSPACE_KEY ?? "VOGARA_NOVA";
+  const reviewer = await db.user.findUnique({
+    where: { email: parsed.data.reviewer },
+    include: { memberships: { where: { workspace: { key: workspaceKey, isActive: true }, role: { in: ["ADMIN", "APPROVER"] } } } },
+  });
+  if (!reviewer?.isActive || (!isEnvironmentAdmin(reviewer.email) && reviewer.memberships.length === 0)) redirect("/reviews?error=reviewer");
   await db.$transaction(async (tx) => {
     const transitioned = await tx.promptVersion.updateMany({
       where: { id: version.id, status: "DRAFT" },
@@ -236,6 +243,9 @@ export async function approvePromptVersion(formData: FormData) {
   if (!canApprovePrompt(user.roles)) redirect("/");
   const parsed = reviewMessageSchema.safeParse({ versionId: value(formData, "versionId"), message: value(formData, "message") });
   if (!parsed.success) redirect("/reviews?error=reason");
+  const assignment = await db.promptVersion.findUnique({ where: { id: parsed.data.versionId }, select: { status: true, approverLabel: true } });
+  if (!assignment || assignment.status !== "PILOT") redirect("/reviews?error=transition");
+  if (assignment.approverLabel?.includes("@") && assignment.approverLabel.toLowerCase() !== user.email && !user.roles.includes("admin")) redirect("/reviews?error=assignment");
   const actor = await auditActor(user.email, user.name);
   const now = new Date();
   const promptKey = await db.$transaction(async (tx) => {
@@ -265,6 +275,7 @@ export async function rejectPromptVersion(formData: FormData) {
   if (!parsed.success) redirect("/reviews?error=reason");
   const version = await db.promptVersion.findUnique({ where: { id: parsed.data.versionId }, include: { prompt: true } });
   if (!version || version.status !== "PILOT") redirect("/reviews?error=transition");
+  if (version.approverLabel?.includes("@") && version.approverLabel.toLowerCase() !== user.email && !user.roles.includes("admin")) redirect("/reviews?error=assignment");
   await db.$transaction([
     db.promptVersion.update({ where: { id: version.id }, data: { status: "DRAFT" } }),
     db.auditEvent.create({ data: { workspaceId: version.prompt.workspaceId, actorEmail: user.email, entityType: "PromptVersion", entityId: version.id, action: "ChangesRequested", reason: parsed.data.reason, source: "PROMPT_OS", previousState: { status: "PILOT" }, newState: { status: "DRAFT" } } }),

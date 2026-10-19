@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { adminAuth } from "@/lib/firebase/admin";
-import { resolveRoles, type AppRole } from "./policy";
+import { resolveWorkspaceRoles } from "./access";
+import type { AppRole } from "./policy";
 
 export const SESSION_COOKIE = "__session";
 export const SESSION_MAX_AGE_MS = 5 * 24 * 60 * 60 * 1000;
@@ -22,7 +23,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     const token = await adminAuth.verifySessionCookie(sessionCookie, true);
     const email = token.email?.trim().toLowerCase();
     if (!email || token.email_verified !== true) return null;
-    const roles = resolveRoles(email);
+    const roles = await resolveWorkspaceRoles(email);
     if (roles.length === 0) return null;
 
     return {
