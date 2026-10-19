@@ -166,8 +166,9 @@ body { background: var(--background); }
 .audit-row > * { min-width: 0; padding: 15px; }
 .audit-row--header { background: #f1f4f6; color: var(--brand-primary); font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
 .audit-row p { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.audit-row > div > strong { overflow-wrap: anywhere; }
 .audit-row small { display: block; margin-top: 4px; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
-.audit-row time { color: var(--muted); font-size: 11px; }
+.audit-row time { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .audit-action { display: inline-flex; padding: 5px 8px; border-radius: 99px; background: #edf3f7; color: var(--brand-primary); font-size: 10px; font-weight: 800; }
 .audit-action--approved,.audit-action--promptcopied { background: #e9f7ef; color: #176b3a; }
 .audit-action--changesrequested,.audit-action--memberdeactivated { background: #fff0ef; color: #9a2f26; }
