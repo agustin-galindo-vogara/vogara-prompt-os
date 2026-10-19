@@ -20,6 +20,12 @@ const versionSchema = z.object({
 });
 
 const transitionSchema = z.object({ versionId: z.string().uuid() });
+const reviewMessageSchema = transitionSchema.extend({
+  message: z.string().trim().min(5).max(2000),
+});
+const submissionSchema = reviewMessageSchema.extend({
+  reviewer: z.string().trim().min(3).max(200),
+});
 
 function value(formData: FormData, key: string) {
   const item = formData.get(key);
@@ -191,24 +197,45 @@ export async function updatePromptDraft(formData: FormData) {
 export async function submitPromptVersion(formData: FormData) {
   const user = await requireSession();
   if (!canEditPrompt(user.roles)) redirect("/");
-  const parsed = transitionSchema.safeParse({ versionId: value(formData, "versionId") });
+  const parsed = submissionSchema.safeParse({
+    versionId: value(formData, "versionId"),
+    reviewer: value(formData, "reviewer"),
+    message: value(formData, "message"),
+  });
   if (!parsed.success) redirect("/reviews?error=invalid");
   const version = await db.promptVersion.findUnique({ where: { id: parsed.data.versionId }, include: { prompt: true } });
   if (!version || version.status !== "DRAFT") redirect("/reviews?error=transition");
-  await db.$transaction([
-    db.promptVersion.update({ where: { id: version.id }, data: { status: "PILOT" } }),
-    db.auditEvent.create({ data: { workspaceId: version.prompt.workspaceId, actorEmail: user.email, entityType: "PromptVersion", entityId: version.id, action: "SubmittedForApproval", source: "PROMPT_OS", previousState: { status: "DRAFT" }, newState: { status: "PILOT" } } }),
-  ]);
+  await db.$transaction(async (tx) => {
+    const transitioned = await tx.promptVersion.updateMany({
+      where: { id: version.id, status: "DRAFT" },
+      data: { status: "PILOT", approverLabel: parsed.data.reviewer },
+    });
+    if (transitioned.count !== 1) throw new Error("INVALID_SUBMISSION_TRANSITION");
+    await tx.auditEvent.create({
+      data: {
+        workspaceId: version.prompt.workspaceId,
+        actorEmail: user.email,
+        entityType: "PromptVersion",
+        entityId: version.id,
+        action: "SubmittedForApproval",
+        reason: parsed.data.message,
+        source: "PROMPT_OS",
+        previousState: { status: "DRAFT" },
+        newState: { status: "PILOT", reviewer: parsed.data.reviewer, submittedBy: user.email },
+      },
+    });
+  }, { isolationLevel: "Serializable" });
   revalidatePath("/");
   revalidatePath("/reviews");
+  revalidatePath(`/reviews/${version.id}/compare`);
   redirect("/reviews?submitted=1");
 }
 
 export async function approvePromptVersion(formData: FormData) {
   const user = await requireSession();
   if (!canApprovePrompt(user.roles)) redirect("/");
-  const parsed = transitionSchema.safeParse({ versionId: value(formData, "versionId") });
-  if (!parsed.success) redirect("/reviews?error=invalid");
+  const parsed = reviewMessageSchema.safeParse({ versionId: value(formData, "versionId"), message: value(formData, "message") });
+  if (!parsed.success) redirect("/reviews?error=reason");
   const actor = await auditActor(user.email, user.name);
   const now = new Date();
   const promptKey = await db.$transaction(async (tx) => {
@@ -220,13 +247,14 @@ export async function approvePromptVersion(formData: FormData) {
       await tx.auditEvent.createMany({ data: approved.map((item) => ({ workspaceId: candidate.prompt.workspaceId, actorEmail: user.email, entityType: "PromptVersion", entityId: item.id, action: "Superseded", source: "PROMPT_OS", previousState: { status: "APPROVED" }, newState: { status: "SUPERSEDED", supersededBy: candidate.id } })) });
     }
     await tx.promptVersion.update({ where: { id: candidate.id }, data: { status: "APPROVED", approvedAt: now, lastReviewedAt: now, approverLabel: user.name ?? user.email } });
-    await tx.auditEvent.create({ data: { workspaceId: candidate.prompt.workspaceId, actorEmail: user.email, entityType: "PromptVersion", entityId: candidate.id, action: "Approved", source: "PROMPT_OS", previousState: { status: "PILOT" }, newState: { status: "APPROVED", approver: actor.email } } });
+    await tx.auditEvent.create({ data: { workspaceId: candidate.prompt.workspaceId, actorEmail: user.email, entityType: "PromptVersion", entityId: candidate.id, action: "Approved", reason: parsed.data.message, source: "PROMPT_OS", previousState: { status: "PILOT" }, newState: { status: "APPROVED", approver: actor.email, approvedAt: now.toISOString() } } });
     return candidate.prompt.key;
   }, { isolationLevel: "Serializable" });
   revalidatePath("/");
   revalidatePath("/library");
   revalidatePath(`/library/${promptKey}`);
   revalidatePath("/reviews");
+  revalidatePath(`/reviews/${parsed.data.versionId}/compare`);
   redirect("/reviews?approved=1");
 }
 
@@ -243,5 +271,30 @@ export async function rejectPromptVersion(formData: FormData) {
   ]);
   revalidatePath("/");
   revalidatePath("/reviews");
+  revalidatePath(`/reviews/${version.id}/compare`);
   redirect("/reviews?rejected=1");
+}
+
+export async function addReviewComment(formData: FormData) {
+  const user = await requireSession(["admin", "approver", "editor"]);
+  const parsed = reviewMessageSchema.safeParse({ versionId: value(formData, "versionId"), message: value(formData, "message") });
+  if (!parsed.success) redirect("/reviews?error=reason");
+  const version = await db.promptVersion.findUnique({ where: { id: parsed.data.versionId }, include: { prompt: true } });
+  if (!version || !["DRAFT", "PILOT"].includes(version.status)) redirect("/reviews?error=transition");
+  await db.auditEvent.create({
+    data: {
+      workspaceId: version.prompt.workspaceId,
+      actorEmail: user.email,
+      entityType: "PromptVersion",
+      entityId: version.id,
+      action: "ReviewCommentAdded",
+      reason: parsed.data.message,
+      source: "PROMPT_OS",
+      previousState: { status: version.status },
+      newState: { status: version.status },
+    },
+  });
+  revalidatePath("/reviews");
+  revalidatePath(`/reviews/${version.id}/compare`);
+  redirect("/reviews?commented=1");
 }

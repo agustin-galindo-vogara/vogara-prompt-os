@@ -26,8 +26,39 @@
 .review-card summary { cursor: pointer; color: var(--brand-primary); font-weight: 800; }
 .review-actions { padding-top: 8px; }
 .review-actions form { margin: 0; }
-.reject-form { display: flex; gap: 8px; flex: 1; min-width: 300px; }
-.reject-form input { flex: 1; }
+.review-summary { display: flex; gap: 12px; }
+.review-summary > div { min-width: 132px; padding: 14px 16px; border: 1px solid var(--brand-border); border-radius: 14px; background: #fff; }
+.review-summary strong, .review-summary span { display: block; }
+.review-summary strong { color: var(--brand-primary); font-size: 24px; }
+.review-summary span { margin-top: 2px; color: var(--muted); font-size: 12px; }
+.review-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 18px; padding: 12px; }
+.review-tabs, .review-search, .comment-form { display: flex; align-items: center; gap: 8px; }
+.review-tabs a { display: flex; align-items: center; gap: 7px; padding: 9px 12px; border-radius: 9px; color: var(--muted); font-size: 13px; font-weight: 800; }
+.review-tabs a.active { background: var(--brand-primary); color: #fff; }
+.review-tabs span { min-width: 22px; padding: 2px 6px; border-radius: 20px; background: rgba(255,255,255,.16); text-align: center; }
+.review-search input, .comment-form input, .decision-form input, .decision-form textarea { width: 100%; border: 1px solid var(--brand-border); border-radius: 10px; background: #fff; padding: 10px 12px; color: var(--text); font: inherit; }
+.review-search input { width: min(280px, 42vw); }
+.review-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(250px, .75fr); gap: 24px; margin-top: 16px; }
+.review-primary { min-width: 0; }
+.review-timeline { padding-left: 22px; border-left: 1px solid #e4e8eb; }
+.review-timeline h3 { margin: 0 0 18px; color: var(--brand-primary); }
+.review-timeline ol, .review-history ol { display: grid; gap: 16px; margin: 0; padding: 0; list-style: none; }
+.review-timeline li, .review-history li { position: relative; padding-left: 18px; }
+.review-timeline li::before, .review-history li::before { position: absolute; top: 6px; left: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--brand-accent); content: ""; }
+.review-timeline li strong, .review-timeline li span, .review-history li strong, .review-history li span { display: block; }
+.review-timeline li span, .review-history li span { margin-top: 3px; color: var(--muted); font-size: 11px; }
+.review-timeline li p, .review-history li p { margin: 6px 0 0; font-size: 13px; line-height: 1.45; }
+.decision-form { display: grid; gap: 12px; margin-top: 16px; padding: 16px; border: 1px solid var(--brand-border); border-radius: 13px; background: #f8fafb; }
+.decision-form label { display: grid; gap: 6px; }
+.decision-form label span { color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.decision-form button { justify-self: start; }
+.decision-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.decision-form--approve { border-color: #b9dfc8; background: #f1faf5; }
+.decision-form--reject { border-color: #ecd0cc; background: #fff7f6; }
+.comment-form { margin-top: 12px; }
+.comment-form input { flex: 1; }
+.review-history { margin-top: 20px; }
+.review-history ol { margin-top: 18px; }
 .compare-meta { margin-bottom: 20px; padding: 0; overflow: hidden; }
 .compare-header, .compare-meta-row { display: grid; grid-template-columns: 180px 1fr 1fr; }
 .compare-header { background: #f0f3f6; color: var(--brand-primary); }
@@ -50,7 +81,16 @@
   .page-heading--actions { align-items: flex-start; flex-direction: column; }
   .form-grid, .review-meta { grid-template-columns: 1fr; }
   .form-span { grid-column: auto; }
-  .reject-form { min-width: 100%; flex-direction: column; }
+  .review-summary { width: 100%; }
+  .review-summary > div { flex: 1; min-width: 0; }
+  .review-toolbar, .review-layout { align-items: stretch; grid-template-columns: 1fr; }
+  .review-toolbar { flex-direction: column; }
+  .review-tabs, .review-search { width: 100%; }
+  .review-tabs { overflow-x: auto; }
+  .review-search input { width: 100%; }
+  .review-timeline { padding: 20px 0 0; border-top: 1px solid #e4e8eb; border-left: 0; }
+  .decision-grid { grid-template-columns: 1fr; }
+  .comment-form { align-items: stretch; flex-direction: column; }
   .compare-header, .compare-meta-row { grid-template-columns: 110px minmax(180px, 1fr) minmax(180px, 1fr); }
   .compare-meta { overflow: auto; }
   .diff-grid { min-width: 820px; }
