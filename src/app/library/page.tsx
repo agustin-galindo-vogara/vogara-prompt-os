@@ -1,3 +1,4 @@
+/Users/agustingalindo/.zprofile:export:1: not valid in this context: export HOMEBREW_PREFIX
 import Link from "next/link";
 import type { Prisma, PromptVersionStatus } from "@prisma/client";
 import { PromptCard } from "@/components/prompt-card";
@@ -135,12 +136,13 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
   const activeFilterCount = [query, category, stage, platform, owner, selectedStatus !== "APPROVED" ? selectedStatus : ""].filter(Boolean).length;
 
   return <>
-    <section className="page-heading">
+    <section className="page-heading page-heading--actions">
       <div>
         <span className="eyebrow">LIBRARY</span>
         <h1>Approved knowledge, not just prompt text.</h1>
         <p>Search prompt content and narrow results by category, FlightPath stage, lifecycle status, platform or owner.</p>
       </div>
+      {canEditPrompt(user.roles) && <Link className="button" href="/library/new">Create prompt</Link>}
     </section>
     <form className="filter-panel" method="get">
       <label className="filter-search">

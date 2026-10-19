@@ -1,7 +1,9 @@
+/Users/agustingalindo/.zprofile:export:1: not valid in this context: export HOMEBREW_PREFIX
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 
 const feedbackSchema = z.object({ runId: z.string().uuid(), rating: z.number().int().min(1).max(5), outcome: z.enum(["SUCCESS", "PARTIAL", "NO_RESULT"]) });
 
@@ -12,6 +14,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ key
   if (!parsed.success) return NextResponse.json({ error: "Invalid feedback" }, { status: 400 });
   const { key } = await params;
   const workspaceKey = process.env.DEFAULT_WORKSPACE_KEY ?? "VOGARA_NOVA";
+  const quota = await rateLimit({ actorEmail: user.email, action: "PromptOutcomeRecorded", limit: 30, windowSeconds: 3600, workspaceKey });
+  if (!quota.allowed) return NextResponse.json({ error: "Too many feedback requests" }, { status: 429, headers: { "Retry-After": String(quota.retryAfter) } });
   const run = await db.auditEvent.findFirst({ where: { id: parsed.data.runId, actorEmail: user.email, action: "PromptRunPrepared", entityType: "PromptVersion", workspace: { key: workspaceKey, isActive: true } } });
   if (!run) return NextResponse.json({ error: "Runner session not found" }, { status: 404 });
   const version = await db.promptVersion.findFirst({ where: { id: run.entityId, prompt: { key, workspace: { key: workspaceKey } } }, include: { prompt: true } });

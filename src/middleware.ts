@@ -1,3 +1,4 @@
+/Users/agustingalindo/.zprofile:export:1: not valid in this context: export HOMEBREW_PREFIX
 import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(request: NextRequest) {
@@ -10,5 +11,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!sign-in|api/auth|_next/static|_next/image|favicon.ico|brand).*)"],
+  matcher: ["/((?!sign-in|api/auth|api/health|_next/static|_next/image|favicon.ico|brand).*)"],
 };
